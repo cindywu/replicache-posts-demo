@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Replicache } from 'replicache'
 import { useSubscribe } from 'replicache-react-util'
+import { v4 as uuidv4 } from 'uuid'
 
 export default function Home() {
   const [rep, setRep] = useState(null)
@@ -9,11 +10,22 @@ export default function Home() {
     const rep = new Replicache({
       pushURL: '/api/replicache-push',
       pullURL: '/api/replicache-pull',
+      mutators: {
+        async createPost(tx, {id, from, content, order, labels}) {
+          await tx.put(`post/${id}`, {
+            from,
+            content,
+            order, 
+            labels
+          })
+        }
+      },
       wasmModule: '/replicache.dev.wasm',
     })
     listen(rep)
     setRep(rep)
     console.log('rep', rep)
+    console.log('uuid', uuidv4())
   }, [])
 
   return rep && <Library rep={rep} />
@@ -36,11 +48,29 @@ function Library({rep}) {
 
   const onSubmit = e => {
     e.preventDefault()
+    console.log("i am in onsubmit")
+    const last = posts.length && posts[posts.length - 1][1]
+    const order = (last?.order ?? 0) + 1
+    rep.mutate.createPost({
+      id: uuidv4(),
+      from: usernameRef.current.value,
+      content: contentRef.current.value,
+      order,
+      labels: [
+        { 
+          id: uuidv4(),
+          name: 'important',
+          color: 'red'
+        },
+      ]
+    })
+    usernameRef.current.value = ''
+    contentRef.current.value = ''
   }
 
   return (
     <div style={styles.container}>
-      <form style={styles.form}>
+      <form style={styles.form} onSubmit={onSubmit}>
         <input ref={usernameRef} style={styles.username} required />
         says:
         <input ref={contentRef} style={styles.content} required />
